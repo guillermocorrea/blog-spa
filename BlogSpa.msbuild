@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">  
+  <PropertyGroup>
+                <!-- The build target configuration (Debug versus Release) -->
+    <Configuration>Debug</Configuration>                
+                <!-- General Paths -->
+                <!-- The root directory containing the build file -->
+                <RootPath>$(MSBuildProjectDirectory)</RootPath>
+                <!-- The source code directory -->
+                <SrcBasePath>$(RootPath)\BlogSpa</SrcBasePath>
+                <!-- The tools directory -->
+                <ToolsBasePath>$(RootPath)\libraries</ToolsBasePath>
+                <!-- The reports directory -->
+                <ReportsPath>$(RootPath)\reports</ReportsPath>
+                <!-- The Source Code Solution Name, this is conventions based and should be named the same as the build file. 
+                     e.g. example.sln should have a matching example.msbuild file -->
+                <BuildSolutionFile>$(SrcBasePath)\$(MSBuildProjectName).sln</BuildSolutionFile>
+                
+                <!-- MsTest -->
+                <!-- The tools path for MsTest -->
+            <MsTestPath>C:\Program Files\Microsoft Visual Studio 10.0\Common7\IDE\mstest.exe</MsTestPath>
+                <!-- MsTest report name and location -->
+                <MsTestOuputFile>$(ReportsPath)\mstest-output.xml</MsTestOuputFile>
+        
+                <!-- OpenCover -->
+                <!-- The tools path for OpenCover -->
+                <OpenCoverPath>$(ToolsBasePath)\OpenCover.4.0.519</OpenCoverPath>
+                <ReportGeneratorPath>$(ToolsBasePath)\ReportGenerator.1.5.0.0</ReportGeneratorPath>
+                <!-- OpenCover report name and location -->
+                <OpenCoverOuputFile>$(ReportsPath)\coverage-output.xml</OpenCoverOuputFile>
+                <OpenCoverTmpOuputFile>$(ReportsPath)\coverage-tmp-output.xml</OpenCoverTmpOuputFile>
+                <OpenCoverReportPath>$(ReportsPath)\cobertura</OpenCoverReportPath>                                
+  </PropertyGroup>
+ 
+        <!-- The Clean Target -->
+  <Target Name="Clean">
+        <!-- Remove the reports directory if it already exists from a previous build -->
+        <Message Text="$(ReportsPath)" />
+        <RemoveDir Directories="$(ReportsPath)" Condition = "Exists('$(ReportsPath)')" />
+        <Delete Files="TestResult.xml" Condition = "Exists('TestResult.xml')" />
+        <!-- Create the reports directory for this builds output -->
+        <MakeDir Directories = "$(ReportsPath)"  />
+  </Target>
+ 
+
+                <!-- The Compile Target, compiles the source code for the solution -->
+  <Target Name="Compile" DependsOnTargets="Clean">
+    <MSBuild Projects="$(BuildSolutionFile)" ContinueOnError="false" Properties="Configuration=$(Configuration)">
+      <Output ItemName="BuildOutput" TaskParameter="TargetOutputs"/>
+    </MSBuild>
+  </Target>
+
+  
+
+ <!-- The Code Coverage Target, checks code coverage using opencover and msttest, the 
+                        task generates both a coverage report and the test report -->
+  <Target Name="CodeCoverage">
+   <!--<Target Name="CodeCoverage">-->
+                <!-- Include all assemblies that end in Tests.dll (This is convention based) -->
+    <CreateItem Include="**\Bin\Debug\*Tests*.dll" >
+      <Output TaskParameter="Include" ItemName="TestAssemblies" />
+    </CreateItem>
+    <Message Text="CodeCoverage" />
+    <MakeDir Directories="$(OpenCoverReportPath)"/>
+        <!-- Asegure que este creada la variable de entorno NUNIT apuntando a los ejecutables de nunit-->
+        <Exec Command="&quot;$(OpenCoverPath)\OpenCover.Console.exe&quot; -register:user -target:&quot;$(MsTestPath)&quot; -targetargs:/testcontainer:&quot;@(TestAssemblies)&quot; -filter:&quot;+[DemoMsTest.Logic*]* -[DemoMsTest.Tests]*&quot; -output:&quot;$(OpenCoverOuputFile)&quot;" />
+        <Message Text="CodeCoverage finished" />                
+  </Target>
+  
+  <Target Name="Yslow">
+	<Exec Command="phantomjs yslow.js -i grade -threshold &quot;B&quot; -f tap http://cnn.com > &quot;$(ReportsPath)\yslow.tap&quot;" IgnoreExitCode="true" />
+  </Target>
+  
+  <!-- Genera reporte de cobertura -->
+  <Target Name="CoberturaReport">
+        <Exec Command="&quot;ReportGenerator.exe&quot; &quot;$(OpenCoverOuputFile)&quot; &quot;$(OpenCoverReportPath)&quot;" />
+  </Target>
+  
+  <!-- The default build task that pulls the other tasks together -->
+        <Target Name="Build" DependsOnTargets="Compile">
+        </Target>
+        
+        <Target Name="CI" DependsOnTargets="Clean;Compile;Yslow">
+        </Target>
+</Project>
